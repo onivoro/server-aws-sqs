@@ -7,10 +7,10 @@ import { ServerAwsSqsConfig } from './classes/server-aws-sqs-config.class';
 let sqsClient: SQSClient | null = null;
 
 @Module({})
-export class LibApiIvinesisSqsModule {
+export class ServerAwsSqsModule {
   static configure(config: ServerAwsSqsConfig) {
     return moduleFactory({
-      module: LibApiIvinesisSqsModule,
+      module: ServerAwsSqsModule,
       providers: [
         {
           provide: SQSClient,
