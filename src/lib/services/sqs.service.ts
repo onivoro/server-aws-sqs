@@ -42,4 +42,24 @@ export class SqsService {
       throw error;
     }
   }
+
+  async getApproximateNumberOfMessages(): Promise<number> {
+    try {
+      const queueAttrs = await this.sqs.send(
+        new GetQueueAttributesCommand({
+          QueueUrl: this.config.AWS_SQS_URL,
+          AttributeNames: ['ApproximateNumberOfMessages']
+        })
+      );
+
+      const messageCount = parseInt(
+        queueAttrs.Attributes?.ApproximateNumberOfMessages || '0'
+      );
+
+      return messageCount;
+    } catch (error) {
+      console.error({ error, detail: `Failed to determine ApproximateNumberOfMessages for queue ${this.config.AWS_SQS_URL}:` });
+      throw error;
+    }
+  }
 }
