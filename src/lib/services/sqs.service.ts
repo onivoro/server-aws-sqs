@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GetQueueAttributesCommand, SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+import { DeleteMessageBatchCommand, GetQueueAttributesCommand, ReceiveMessageCommand, SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { ServerAwsSqsConfig } from '../classes/server-aws-sqs-config.class';
 
 @Injectable()
@@ -60,6 +60,51 @@ export class SqsService {
     } catch (error) {
       console.error({ error, detail: `Failed to determine ApproximateNumberOfMessages for queue ${this.config.AWS_SQS_URL}:` });
       throw error;
+    }
+  }
+
+  async processMessageBatches(maxIterations: number) {
+    let iteration = 0;
+    let messageCount = await this.getApproximateNumberOfMessages();
+
+    while ((iteration < maxIterations) && !!messageCount) {
+      try {
+
+        messageCount = await this.getApproximateNumberOfMessages();
+
+        const response = await this.sqs.send(new ReceiveMessageCommand({
+          QueueUrl: this.config.AWS_SQS_URL,
+          MaxNumberOfMessages: 10,
+          WaitTimeSeconds: 20,
+          VisibilityTimeout: 30
+        }));
+
+        const messages = response.Messages || [];
+
+        console.log(`Received ${messages.length} messages`);
+
+        const parsedMessages: Event[] = messages.map(({ Body }: any) => JSON.parse(Body || '{}'));
+
+        console.log(parsedMessages);
+
+        if (parsedMessages?.length) {
+          console.log(`processing messages iteration ${iteration}`);
+
+          const Entries = messages.map((_) => ({ ReceiptHandle: _.ReceiptHandle, Id: _.MessageId }));
+
+          await this.sqs.send(new DeleteMessageBatchCommand({
+            QueueUrl: this.config.AWS_SQS_URL,
+            Entries
+          }));
+
+          console.log('Deleted messages:', Entries);
+        }
+
+      } catch (error) {
+        console.error('Error polling messages:', error);
+      }
+
+      iteration++;
     }
   }
 }
